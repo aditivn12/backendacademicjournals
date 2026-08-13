@@ -1,0 +1,97 @@
+// Personal-use data model. SQLite by default (see .env.example).
+// Swap provider to "postgresql" later if this ever needs multi-user use.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model JobListing {
+  id             String    @id @default(uuid())
+  externalId     String?
+  source         String // "greenhouse" | "lever" | "ashby" | "mock" | etc.
+  sourceUrl      String
+  applicationUrl String
+  urlVerifiedAt  DateTime?
+
+  companyName       String
+  companyId         String?
+  companyCareersUrl String?
+
+  title           String
+  normalizedTitle String?
+  description     String?
+  employmentType  String?
+  workArrangement String? // "onsite" | "hybrid" | "remote" | "unknown"
+
+  rawLocation String?
+  city        String?
+  state       String?
+  region      String? // matches one of the 5 target markets, if resolved
+  country     String?
+
+  roleCategories String // JSON-encoded string[] (SQLite has no native array type)
+  seniorityLevel String? // "new_grad" | "entry_level" | "early_career" | "unknown"
+
+  postedAt   DateTime?
+  retrievedAt DateTime @default(now())
+  expiresAt  DateTime?
+
+  matchScore   Int
+  matchReasons String // JSON-encoded string[]
+
+  isPriorityCompany Boolean @default(false)
+  isFintechRelevant Boolean @default(false)
+  isRiskRelevant    Boolean @default(false)
+
+  fingerprint String // used for de-duplication
+  isActive    Boolean @default(true)
+
+  savedJob SavedJob?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fingerprint])
+  @@index([region])
+  @@index([companyName])
+}
+
+model Company {
+  id                  String  @id @default(uuid())
+  name                String  @unique
+  industry            String?
+  careersUrl          String?
+  regions             String // JSON-encoded string[] of target markets this company is relevant to
+  isFintechRelevant   Boolean @default(false)
+  isRiskRelevant      Boolean @default(false)
+  hasNewGradPipeline  Boolean @default(false)
+  recommendationNote  String?
+  isUserPriority      Boolean @default(false)
+  isSeed              Boolean @default(true) // false once user adds their own
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model SavedJob {
+  id           String   @id @default(uuid())
+  jobListingId String   @unique
+  jobListing   JobListing @relation(fields: [jobListingId], references: [id], onDelete: Cascade)
+  status       String   @default("saved") // saved|applied|interviewing|rejected|offer|not_interested
+  notes        String?
+  savedAt      DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model SearchRun {
+  id              String   @id @default(uuid())
+  runAt           DateTime @default(now())
+  paramsJson      String
+  resultCount     Int
+  sourcesQueried  String // JSON-encoded SourceQueryResult[]
+  warnings        String // JSON-encoded string[]
+}
